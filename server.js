@@ -1,58 +1,41 @@
-import express from "express";
-import dotenv from "dotenv";
-import webhookRoutes from "./src/webhook/webhook.routes.js";
-dotenv.config();
-// server.js (ESM - ensure "type": "module" in package.json)
+// Import Express.js
+const express = require("express");
 
+// Create an Express app
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middleware to parse JSON bodies
 app.use(express.json());
 
-// Routes
+// Set port and verify_token
+const port = process.env.PORT || 3000;
+const verifyToken = process.env.VERIFY_TOKEN;
+
+// Route for GET requests
 app.get("/", (req, res) => {
-  res.json({ ok: true, message: "API is running" });
+  const {
+    "hub.mode": mode,
+    "hub.challenge": challenge,
+    "hub.verify_token": token,
+  } = req.query;
+
+  if (mode === "subscribe" && token === verifyToken) {
+    console.log("WEBHOOK VERIFIED");
+    res.status(200).send(challenge);
+  } else {
+    res.status(403).end();
+  }
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "healthy", uptime: process.uptime() });
+// Route for POST requests
+app.post("/", (req, res) => {
+  const timestamp = new Date().toISOString().replace("T", " ").slice(0, 19);
+  console.log(`\n\nWebhook received ${timestamp}\n`);
+  console.log(JSON.stringify(req.body, null, 2));
+  res.status(200).end();
 });
 
-// WhatsApp webhook routes
-app.use("/whatsapp", webhookRoutes);
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: "Not found" });
+// Start the server
+app.listen(port, () => {
+  console.log(`\nListening on port ${port}\n`);
 });
-
-// Error handler
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
-  res.status(err.status || 500).json({ error: "Internal Server Error" });
-});
-
-// Start server
-const server = app.listen(PORT, () => {
-  console.log(`Server listening on ${process.env.BASE_URL}:${PORT}`);
-});
-
-// Graceful shutdown
-const shutdown = (signal) => {
-  console.log(`\nReceived ${signal}. Shutting down...`);
-  server.close(() => {
-    console.log("HTTP server closed.");
-    process.exit(0);
-  });
-  setTimeout(() => {
-    console.warn("Force exiting after timeout.");
-    process.exit(1);
-  }, 10000).unref();
-};
-
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-
-export default app;
