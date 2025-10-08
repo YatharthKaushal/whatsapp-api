@@ -1,5 +1,6 @@
-import express from 'express';
-import dotenv from 'dotenv';
+import express from "express";
+import dotenv from "dotenv";
+import webhookRoutes from "./src/webhook/webhook.routes.js";
 dotenv.config();
 // server.js (ESM - ensure "type": "module" in package.json)
 
@@ -10,24 +11,27 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // Routes
-app.get('/', (req, res) => {
-  res.json({ ok: true, message: 'API is running' });
+app.get("/", (req, res) => {
+  res.json({ ok: true, message: "API is running" });
 });
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', uptime: process.uptime() });
+app.get("/health", (req, res) => {
+  res.json({ status: "healthy", uptime: process.uptime() });
 });
+
+// WhatsApp webhook routes
+app.use("/whatsapp", webhookRoutes);
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
+  res.status(404).json({ error: "Not found" });
 });
 
 // Error handler
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(err.status || 500).json({ error: 'Internal Server Error' });
+  console.error("Unhandled error:", err);
+  res.status(err.status || 500).json({ error: "Internal Server Error" });
 });
 
 // Start server
@@ -39,16 +43,16 @@ const server = app.listen(PORT, () => {
 const shutdown = (signal) => {
   console.log(`\nReceived ${signal}. Shutting down...`);
   server.close(() => {
-    console.log('HTTP server closed.');
+    console.log("HTTP server closed.");
     process.exit(0);
   });
   setTimeout(() => {
-    console.warn('Force exiting after timeout.');
+    console.warn("Force exiting after timeout.");
     process.exit(1);
   }, 10000).unref();
 };
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 export default app;
