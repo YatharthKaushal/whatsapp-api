@@ -1,7 +1,8 @@
 // Import Express.js
 import express from "express";
 import dotenv from "dotenv";
-import { sendThankYou } from "./services/whatsappService.js";
+import test from "./langchain/chat.js";
+import handleIncomingMessage from "./services/replyService.js";
 
 // Load environment variables
 dotenv.config();
@@ -200,21 +201,38 @@ app.post("/", async (req, res) => {
     for (const ev of events) {
       logStructuredEvent(ev, body);
 
-      // If it is a message from a user, reply with Thank You
+      // If it is a message from a user, generate AI reply and send
       if (ev.eventName.startsWith("messages.")) {
         const to = ev.senderNumber;
-        if (to) {
+        const name = ev.senderName;
+        const text = ev.receivedText;
+
+        if (to && text) {
           try {
-            console.log("[Reply] Sending Thank You to", to);
-            await sendThankYou(to, ev.senderName);
+            console.log("[Reply] Handling inbound user message", {
+              to,
+              hasName: Boolean(name),
+              length: text.length,
+            });
+            await handleIncomingMessage({
+              senderNumber: to,
+              senderName: name,
+              messageText: text,
+            });
           } catch (sendErr) {
             console.error(
-              "[Reply] Failed to send Thank You",
+              "[Reply] Failed to handle incoming message",
               sendErr?.response?.data || sendErr?.message || sendErr
             );
           }
         } else {
-          console.warn("[Reply] Cannot send Thank You: missing sender number");
+          console.warn(
+            "[Reply] Missing sender number or message text; skipping reply",
+            {
+              toPresent: Boolean(to),
+              hasText: Boolean(text),
+            }
+          );
         }
       }
     }
@@ -224,6 +242,12 @@ app.post("/", async (req, res) => {
     console.error("[ERROR] Exception while handling webhook:", err);
     return res.sendStatus(200);
   }
+});
+
+app.get("/test", async (req, res) => {
+  console.log("> recieved");
+  await test();
+  res.send("completed");
 });
 
 // Global error handler (for unexpected errors in other routes/middleware)
